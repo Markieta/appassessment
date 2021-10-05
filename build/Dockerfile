@@ -11,6 +11,6 @@ RUN pip install -r ./requirements.txt
 RUN curl https://mirror.openshift.com/pub/openshift-v4/clients/oc/latest/linux/oc.tar.gz --output ./oc.tar.gz
 RUN tar -xzf ./oc.tar.gz -C /usr/local/bin/
 RUN chmod 755 /usr/local/bin/oc
-RUN chgmod 755 ./startup.sh
+RUN chmod 755 ./startup.sh
 USER 1001
 CMD ["startup.sh"]
