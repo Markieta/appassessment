@@ -13,4 +13,4 @@ RUN tar -xzf ./oc.tar.gz -C /usr/local/bin/
 RUN chmod 755 /usr/local/bin/oc
 RUN chmod 755 ./startup.sh
 USER 1001
-CMD ["startup.sh"]
+CMD ["./startup.sh"]
