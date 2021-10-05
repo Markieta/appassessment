@@ -5,15 +5,3 @@ oc login --token=`cat /var/run/secrets/kubernetes.io/serviceaccount/token` --ins
 now=$(date +"%m_%d_%Y")
 # run the python script with the TARGET_NAMESPACE variable and output to the expected PVC
 python ./report.py -n ${TARGET_NAMESPACE} -o /output/index.html
-
-
-For the nginx container:
-
-          volumeMounts:
-            - name: report-out
-              mountPath: /usr/share/nginx/html
-              readOnly: true
-      volumes:
-        - name: report-out
-          persistentVolumeClaim:
-            claimName: output
