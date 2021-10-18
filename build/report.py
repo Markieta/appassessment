@@ -164,7 +164,7 @@ if namespace == "default":
   validNS = True
 else:
   validNS = False
-  namespaceList = getObjects('namespace', 'default')
+  namespaceList = getObjects('project', 'default')
   for nsObj in namespaceList:
     if nsObj['metadata']['name'] == namespace:
       validNS = True
