@@ -79,7 +79,7 @@ def hpaCheck(workloadData):
 #end
 
 def pdbCheck(workloadData):
-  retval = {'color': 'red', 'text': "unable to find a PDB where spec.selector.matchLabels is the following:\n" + yaml.dump(workloadData['spec']['selector']['matchLabels'])}
+  retval = {'color': 'red', 'text': "unable to find a matching PDB.  Make sur that spec.selector.matchLabels is defined and that there is a corresponding PDB."}
   jsonpath_expr = parse('spec.selector.matchLabels')
   for pdb in pdbObjects:
     if retval['color'] == 'green':
@@ -160,24 +160,6 @@ logging.basicConfig(filename=args.l, level=logging.INFO, format='[%(asctime)s] %
 logging.info("generating report")
 
 namespace = args.n
-if namespace == "default":
-  validNS = True
-else:
-  validNS = False
-  namespaceList = getObjects('project', 'default')
-  for nsObj in namespaceList:
-    if nsObj['metadata']['name'] == namespace:
-      validNS = True
-      break
-    #end
-  #end
-#end
-
-if not validNS:
-  logging.error(namespace + " is not a valid namespace")
-  sys.exit("error: " + namespace + " is not a valid namespace")
-#end
-
 serverName = getServer()
 
 workloadObjects = getObjects('cronjobs', namespace) + getObjects('daemonset', namespace) + getObjects('deployment', namespace) + getObjects('statefulset', namespace) + getObjects('deploymentconfig', namespace)
