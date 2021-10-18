@@ -7,6 +7,34 @@ from jsonpath_ng import jsonpath, parse
 from plumbum import local
 import argparse
 import yaml
+from checks import *
+
+
+def getServer():
+  currentContext = {}
+  server = ""
+  try:
+    oc = local['oc']
+    data = json.loads(oc('config', 'view', '-o', 'json'))
+    for context in data['contexts']:
+      if context['name'] == data['current-context']:
+        currentContext = context['context']
+        break
+      #end
+    #end
+
+    for cluster in data['clusters']:
+      if cluster['name'] == currentContext['cluster']:
+        server = cluster['cluster']['server']
+        break
+      #end
+    #end
+  except:
+    logging.error("unable to determine server name")
+  #end
+
+  return server
+#end
 
 
 def getObjects(type, namespace='default'):
@@ -24,145 +52,9 @@ def getObjects(type, namespace='default'):
   return []
 #end
 
-def declarativeComponentCheck(workloadData):
-  retval = {'color': 'red', 'text': workloadData['kind']}
-  if workloadData['kind'] in ['CronJob', 'DaemonSet', 'Deployment', 'StatefulSet', 'DeploymentConfig']:
-    retval['color'] = 'green'
-
-  return retval
-#end
-
-def rollingUpdateCheck(workloadData):
-  retval = {'color': 'white', 'text': ''}
-  first = parse('spec.strategy.type').find(workloadData)
-  second = parse('spec.updateStrategy.type').find(workloadData)
-  if ((len(first) == 1) and (first[0].value == "RollingUpdate")) or ((len(second) == 1) and (second[0].value == "RollingUpdate")):
-    retval['color'] = 'green'
-    retval['text'] = 'RollingUpdate'
-  else:
-    retval['color'] ='red'
-
-  return retval
-#end
-
-def cpuRequestCheck(workloadData):
-  retval = {'color': 'white', 'text': ''}
-  matches = parse('spec.template.spec.containers[*].resources.requests.cpu').find(workloadData)
-  if (len(matches) > 0) and (len(matches) == len(workloadData['spec']['template']['spec']['containers'])):
-    retval['color'] = 'green'
-    container_cpu_requests = []
-    for container in workloadData['spec']['template']['spec']['containers']:
-      container_cpu_requests = container_cpu_requests + [{'container_name': container['name'], 'cpu_request': container['resources']['requests']['cpu']}]
-    retval['text'] = yaml.dump(container_cpu_requests)
-  else:
-    retval['color'] = 'red'
-
-  return retval
-#end
-
-def memoryRequestCheck(workloadData):
-  retval = {'color': 'white', 'text': ''}
-  matches = parse('spec.template.spec.containers[*].resources.requests.memory').find(workloadData)
-  if (len(matches) > 0) and (len(matches) == len(workloadData['spec']['template']['spec']['containers'])):
-    retval['color'] = 'green'
-    container_memory_requests = []
-    for container in workloadData['spec']['template']['spec']['containers']:
-      container_memory_requests = container_memory_requests + [{'container_name': container['name'], 'memory_request': container['resources']['requests']['memory']}]
-    retval['text'] = yaml.dump(container_memory_requests)
-  else:
-    retval['color'] = 'red'
-
-  return retval
-#end
-
-def cpuLimitCheck(workloadData):
-  retval = {'color': 'white', 'text': ''}
-  matches = parse('spec.template.spec.containers[*].resources.limits.cpu').find(workloadData)
-  if (len(matches) > 0) and (len(matches) == len(workloadData['spec']['template']['spec']['containers'])):
-    retval['color'] = 'green'
-    container_cpu_limits = []
-    for container in workloadData['spec']['template']['spec']['containers']:
-      container_cpu_limits = container_cpu_limits + [{'container_name': container['name'], 'cpu_limit': container['resources']['limits']['cpu']}]
-    retval['text'] = yaml.dump(container_cpu_limits)
-  else:
-    retval['color'] = 'red'
-
-  return retval
-#end
-
-def memoryLimitCheck(workloadData):
-  retval = {'color': 'white', 'text': ''}
-  matches = parse('spec.template.spec.containers[*].resources.limits.memory').find(workloadData)
-  if (len(matches) > 0) and (len(matches) == len(workloadData['spec']['template']['spec']['containers'])):
-    retval['color'] = 'green'
-    container_memory_limits = []
-    for container in workloadData['spec']['template']['spec']['containers']:
-      container_memory_limits = container_memory_limits + [{'container_name': container['name'], 'memory_limit': container['resources']['limits']['memory']}]
-    retval['text'] = yaml.dump(container_memory_limits)
-  else:
-    retval['color'] = 'red'
-
-  return retval
-#end
-
-def livenessProbeCheck(workloadData):
-  retval = {'color': 'white', 'text': ''}
-  matches = parse('spec.template.spec.containers[*].livenessProbe').find(workloadData)
-  noEmptyProbes = True
-  for match in matches:
-    if len(match.value.keys()) == 0:
-      noEmptyProbes = False
-
-  if (len(matches) > 0) and noEmptyProbes and (len(matches) == len(workloadData['spec']['template']['spec']['containers'])):
-    retval['color'] = 'green' 
-    container_liveness_probes = []
-    for container in workloadData['spec']['template']['spec']['containers']:
-      container_liveness_probes = container_liveness_probes + [{'container_name': container['name'], 'livenessProbe': container['livenessProbe']}]
-    retval['text'] = yaml.dump(container_liveness_probes)
-  else: 
-    retval['color'] = 'red'
-  
-  return retval
-#end
-
-def readinessProbeCheck(workloadData):
-  retval = {'color': 'white', 'text': ''}
-  matches = parse('spec.template.spec.containers[*].readinessProbe').find(workloadData)
-  noEmptyProbes = True
-  for match in matches:
-    if len(match.value.keys()) == 0:
-      noEmptyProbes = False
-
-  if (len(matches) > 0) and noEmptyProbes and (len(matches) == len(workloadData['spec']['template']['spec']['containers'])):
-    retval['color'] = 'green'
-    container_readiness_probes = []
-    for container in workloadData['spec']['template']['spec']['containers']:
-      container_readiness_probes = container_readiness_probes + [{'container_name': container['name'], 'readinessProbe': container['readinessProbe']}]
-    retval['text'] = yaml.dump(container_readiness_probes)
-  else:
-    retval['color'] = 'red'
-
-  return retval
-#end
-
-def statelessCheck(workloadData):
-  retval = {'color': 'white', 'text': ''}
-  matches = parse('spec.template.spec.volumes[*].persistentVolumeClaim').find(workloadData)
-  if (len(matches) > 0):
-    retval['color'] = 'yellow'
-    pvcList = []
-    for match in matches:
-      pvcList = pvcList + [match.value]
-
-    retval['text'] = yaml.dump(pvcList)
-  else:
-    retval['color'] = 'green'
-  
-  return retval
-#end
-
 def hpaCheck(workloadData):
-  retval = {'color': 'red', 'text': ''}
+  requiredScaleTargetRef = {'kind': workloadData['kind'], 'name': workloadData['metadata']['name']}
+  retval = {'color': 'red', 'text': "unable to find an HPA with the following scaleTargetRef:\n" + yaml.dump(requiredScaleTargetRef)}
   jsonpath_expr = parse('spec.scaleTargetRef')
   for hpa in hpaObjects:
     if retval['color'] == 'green':
@@ -187,7 +79,7 @@ def hpaCheck(workloadData):
 #end
 
 def pdbCheck(workloadData):
-  retval = {'color': 'red', 'text': ''}
+  retval = {'color': 'red', 'text': "unable to find a PDB where spec.selector.matchLabels is the following:\n" + yaml.dump(workloadData['spec']['selector']['matchLabels'])}
   jsonpath_expr = parse('spec.selector.matchLabels')
   for pdb in pdbObjects:
     if retval['color'] == 'green':
@@ -211,7 +103,7 @@ def pdbCheck(workloadData):
   return retval
 #end
 
-def writeReport(filename, results):
+def writeReport(filename, results, serverName, namespace):
   file = open(filename, 'w')
   file.write("<html>\n")
   file.write("<head>\n")
@@ -220,6 +112,7 @@ def writeReport(filename, results):
   file.write("</head>\n")
   file.write("<body>\n")
 
+  file.write("<h1>Workload health check report for namespace " + namespace + " on server " + serverName + "\n")
   file.write("<hr>\n")
   file.write("<table>\n")
 
@@ -280,11 +173,12 @@ else:
   #end
 #end
 
-
 if not validNS:
   logging.error(namespace + " is not a valid namespace")
   sys.exit("error: " + namespace + " is not a valid namespace")
 #end
+
+serverName = getServer()
 
 workloadObjects = getObjects('cronjobs', namespace) + getObjects('daemonset', namespace) + getObjects('deployment', namespace) + getObjects('statefulset', namespace) + getObjects('deploymentconfig', namespace)
 if len(workloadObjects) == 0:
@@ -310,12 +204,28 @@ checks["StatelessCheck"] = statelessCheck
 checks["HPACheck"] = hpaCheck
 checks["PDBCheck"] = pdbCheck
 
+cronjobChecks = {}
+cronjobChecks["declarativeComponentCheck"] = declarativeComponentCheck
+cronjobChecks["RollingUpdateCheck"] = notApplicableCheck
+cronjobChecks["CPURequestCheck"] = cronjobCpuRequestCheck
+cronjobChecks["MemoryRequestCheck"] = cronjobMemoryRequestCheck
+cronjobChecks["CPULimitCheck"] = cronjobCpuLimitCheck
+cronjobChecks["MemoryLimitCheck"] = cronjobMemoryLimitCheck
+cronjobChecks["LivenessProbeCheck"] = notApplicableCheck
+cronjobChecks["ReadinessProbeCheck"] = notApplicableCheck
+cronjobChecks["StatelessCheck"] = notApplicableCheck
+cronjobChecks["HPACheck"] = notApplicableCheck
+cronjobChecks["PDBCheck"] = notApplicableCheck
+
 results = {}
 for checkName in checks.keys():
   results[checkName] = {}
   for workload in workloadObjects:
     workloadName = workload['metadata']['name']
     logging.info("running check " + checkName + " on workload " + workloadName)
-    results[checkName][workloadName] = checks[checkName](workload)
+    if workload['kind'] == 'CronJob':
+      results[checkName][workloadName] = cronjobChecks[checkName](workload)
+    else:
+      results[checkName][workloadName] = checks[checkName](workload)
 
-writeReport(args.o, results)
+writeReport(args.o, results, serverName, namespace)
