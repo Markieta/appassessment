@@ -1,6 +1,7 @@
 FROM registry.access.redhat.com/ubi8/python-36:1-155
 USER root
 ADD ./report.py ./
+ADD ./checks.py ./
 ADD ./requirements.txt ./
 ADD ./startup.sh ./
 ENV HOME=/tmp/
